@@ -1,4 +1,11 @@
 import axios from 'axios';
+import promptSync from 'prompt-sync';
+
+
+const prompt = promptSync({ sigint: true });
+
+
+console.log("Welcome to ChessFair.");
 
 const playerStatusCache = {};
 
@@ -31,7 +38,7 @@ async function processArchives() {
   const archives = await fetchArchives(); 
 
   let playerUsernames = new Set(); 
-
+  
   for (const archive of archives.archives) {
     const response = await axios.get(archive);
 
@@ -52,8 +59,9 @@ async function processArchives() {
     const status = await getPlayerStatus(username);
     if (status === "closed:fair_play_violations") {
       console.log(`${username}: ${status}`);
+      
     }
   }
 }
 
-processArchives();
+// processArchives();
