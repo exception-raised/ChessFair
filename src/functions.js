@@ -11,10 +11,12 @@ export function log_with_loading_bar(input, interval = 250) {
         process.stdout.write(`\r${P[x++ % P.length]} ${input}`);
     }, interval);
 
-    return function stopLoading() {
-        clearInterval(loadingInterval);
-        process.stdout.write('\r\x1b[K'); // @note: clear the current line
-    };
+    return {
+        stop() {
+            clearInterval(loadingInterval);
+            process.stdout.write(`✓ ${input}\n`);
+        }
+    }
 }
 
 
