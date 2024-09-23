@@ -2,14 +2,14 @@
 import axios from 'axios';
 import { log_with_loading_bar, sleep } from './functions.js';
 import promptSync from 'prompt-sync';
-
+import cli from 'cli-progress'
+import colors from 'ansi-colors'
 
 const prompt = promptSync({ sigint: true });
 
 
 export class app {
 
-    // @todo: still getting rate limits. fix.
     #m_url = "https://api.chess.com/pub/player/";
     #m_archives = {};
     #m_username = "";
@@ -19,7 +19,7 @@ export class app {
 
 
     async #fetch_archives() {
-        const archive_timer = log_with_loading_bar(" Fetching archives...");
+        const archive_timer = log_with_loading_bar("Fetching archives...");
         try {
             const response = await axios.get(`${this.#m_url}${this.#m_username}/games/archives`);
             
@@ -37,7 +37,6 @@ export class app {
     
 
     async #get_player_status(username){
-
         try {
             const response = await axios.get(`${this.#m_url}${username}`);            
             return response.data.status;
@@ -47,7 +46,6 @@ export class app {
     }
 
     async #fill_player_set() {
-        const archive_timer = log_with_loading_bar(" Filling player set...");
         try {
             await this.#fetch_archives();
     
@@ -55,67 +53,94 @@ export class app {
             const total_archives = archives.length;
             let processed_archives = 0;
     
+            const player_set_bar = new cli.SingleBar({
+                format: 'Processing ' + colors.greenBright('[{bar}]') + '{percentage}% | ' + colors.cyanBright('{value}/{total} archives'),
+                barCompleteChar: '\u2588',
+                barIncompleteChar: '\u2591',
+                hideCursor: true,
+                noTTYOutput: true,
+            }, cli.Presets.shades_classic);
+
             const archive_responses = await Promise.all(
                 archives.map(async (archiveUrl) => {
                     const response = await axios.get(archiveUrl);
                     
+
+                    player_set_bar.start(total_archives, processed_archives);
+
                     processed_archives++;
-                    process.stdout.write(`\rProcessed ${processed_archives}/${total_archives} archives...`);
     
+                    player_set_bar.update(processed_archives);
+
                     return response;
                 })
             );
-    
+
+            player_set_bar.stop();
             archive_responses.forEach(response => {
                 response.data.games.forEach(game => {
                     const { white, black } = game;
                     if (white.username !== this.#m_username) {
                         this.#m_player_set.add(white.username);
+                        return;
                     }
                     if (black.username !== this.#m_username) {
                         this.#m_player_set.add(black.username);
+                        return;
                     }
                 });
             });
     
-            archive_timer.stop();
             console.log(`\n✓ Player set filled successfully with ${this.#m_player_set.size} players.`);
         } catch (error) {
-            archive_timer.stop();
             console.error("Failed to fill player set: ", error.response?.data?.message || error.message);
         }
     }
     
+  
     async #process_batches() {
         const usernames = Array.from(this.#m_player_set);
         let banned_users = [];
+        const total_users = usernames.length;
 
-        for (let i = 0; i < usernames.length; i += this.#m_batch_size) {
+        const batch_progress_bar = new cli.SingleBar({
+            format: 'Processing ' + colors.greenBright('[{bar}]') + '{percentage}% | ' + colors.cyanBright('{value}/{total} Users') +  ' | ' + colors.redBright('Banned: {bannedCount}') +  ' | ' + colors.magentaBright('ETA: {eta_formatted}'),
+            barCompleteChar: '\u2588',
+            barIncompleteChar: '\u2591',
+            hideCursor: true,
+            noTTYOutput: true,
+        }, cli.Presets.shades_classic);
+
+        batch_progress_bar.start(total_users, 0, { bannedCount: 0 });
+
+        for (let i = 0; i < total_users; i += this.#m_batch_size) {
             const batch = usernames.slice(i, i + this.#m_batch_size);
 
             const status_promises = batch.map(async (username) => {
                 const status = await this.#get_player_status(username);
                 if (status === "closed:fair_play_violations") {
                     banned_users.push(username); 
-                    
-                    process.stdout.write(`${banned_users.length} found...`);
                 }
             });
 
             await Promise.all(status_promises);
 
-            if (i + this.#m_batch_size < usernames.length) {
+            batch_progress_bar.update(i + batch.length, { bannedCount: banned_users.length });
+
+            if (i + this.#m_batch_size < total_users) {
                 await sleep(this.#m_batch_delay);
             }
         }
+
+        batch_progress_bar.update(total_users, { bannedCount: banned_users.length });
+        batch_progress_bar.stop();
+
         return banned_users;
     }
 
     async #process_archives() {
         console.time("Archive Processing Time");
-    
-        const process_timer = log_with_loading_bar(" Processing archives...");
-    
+        
         await this.#fill_player_set();
 
         const banned_users = await this.#process_batches();
@@ -123,7 +148,6 @@ export class app {
         try {
 
             
-            process_timer.stop();
             console.log("\n✓ Archive processing completed.");
             
             if (banned_users.length > 0) {
