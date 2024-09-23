@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-import { log_with_loading_bar } from './functions.js';
+import { log_with_loading_bar, sleep } from './functions.js';
 import promptSync from 'prompt-sync';
 
 
@@ -9,12 +9,13 @@ const prompt = promptSync({ sigint: true });
 
 export class app {
 
+    // @todo: still getting rate limits. fix.
     #m_url = "https://api.chess.com/pub/player/";
     #m_archives = {};
     #m_username = "";
     #m_player_set = new Set();
     #m_batch_size = 30;
-    #m_batch_delay = 900;
+    #m_batch_delay = 1000;
 
 
     async #fetch_archives() {
@@ -50,22 +51,22 @@ export class app {
         try {
             await this.#fetch_archives();
     
-            const archiveUrls = this.#m_archives.archives;
-            const totalArchives = archiveUrls.length;
-            let processedArchives = 0;
+            const archives = this.#m_archives.archives;
+            const total_archives = archives.length;
+            let processed_archives = 0;
     
-            const archiveResponses = await Promise.all(
-                archiveUrls.map(async (archiveUrl) => {
+            const archive_responses = await Promise.all(
+                archives.map(async (archiveUrl) => {
                     const response = await axios.get(archiveUrl);
                     
-                    processedArchives++;
-                    process.stdout.write(`\rProcessed ${processedArchives}/${totalArchives} archives...`);
+                    processed_archives++;
+                    process.stdout.write(`\rProcessed ${processed_archives}/${total_archives} archives...`);
     
                     return response;
                 })
             );
     
-            archiveResponses.forEach(response => {
+            archive_responses.forEach(response => {
                 response.data.games.forEach(game => {
                     const { white, black } = game;
                     if (white.username !== this.#m_username) {
@@ -104,14 +105,10 @@ export class app {
             await Promise.all(status_promises);
 
             if (i + this.#m_batch_size < usernames.length) {
-                await this.sleep(this.#m_batch_delay);
+                await sleep(this.#m_batch_delay);
             }
         }
         return banned_users;
-    }
-
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     async #process_archives() {
