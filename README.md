@@ -21,7 +21,25 @@ These modifiers can be increased, at the potential cost of rate limits, which wo
 
 # How do I use it?
 
-Using NodeJS, simply run the main.js inside of the src folder. You will be asked to enter the Chess.com username you wish to analyze. Simply enter the username, press enter and wait for the results.
+You will need to have NodeJS installed to use this program. Start by running the following command:
+
+```bash
+
+npm install
+
+```
+
+to install all the needed packages.
+
+Then simply run
+
+```bash
+
+npm start
+
+```
+
+inside of the src folder.
 
 # Docker Setup
 
