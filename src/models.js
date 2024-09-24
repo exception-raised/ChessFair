@@ -41,7 +41,7 @@ export class app {
             const response = await axios.get(`${this.#m_url}${username}`);            
             return response.data.status;
         } catch (error) {
-            console.error(`Error fetching status for ${username}:`, error);
+            console.error(`Error fetching status for ${username}:`);
         }
     }
 
