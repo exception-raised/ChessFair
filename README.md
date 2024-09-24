@@ -31,7 +31,7 @@ npm install
 
 to install all the needed packages.
 
-Then simply run
+Then simply run:
 
 ```bash
 
