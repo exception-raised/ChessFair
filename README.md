@@ -49,7 +49,9 @@ docker run -it --rm --name chessfair-app chessfair
 
 ```
 --it: Enables interactive mode, so you can input data.
+
 --rm: Automatically removes the container once it stops.
+
 --name chessfair-app: Names the container instance chessfair-app.
 
 3. Input Chess.com Username
